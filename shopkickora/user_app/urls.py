@@ -3,6 +3,9 @@ from . import views
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
+    path('customer-support/',views.customer_support_redirect,name='customer_support_redirect'),
+
+
     path('login', views.login_view, name='login'),
     path('signup/', views.signup_view, name='signup'),
     path('verify-otp/', views.verify_otp_view, name='verify_otp'),

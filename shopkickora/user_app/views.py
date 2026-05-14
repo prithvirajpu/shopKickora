@@ -41,17 +41,41 @@ from .models import (
 )
 
 from user_app.forms import LoginForm, ProfileImageForm, ReviewForm 
-from django.conf import settings
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 import cloudinary.uploader
 from decimal import Decimal, InvalidOperation
+
+import jwt
+
+from datetime import datetime, timedelta
+
+from django.conf import settings
 
 
 
 DEFAULT_PROFILE_IMAGE = 'https://res.cloudinary.com/dlfyesjsd/image/upload/v1752843790/default.png_unu5k8.png'
 
 OTP_EXPIRY_SECONDS = 600
+
+@login_required
+def customer_support_redirect(request):
+    user=request.user
+    payload = {
+        "user_id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "full_name": user.full_name,
+        "profile_image": user.profile_image_url,
+
+        "role": "USER",
+        "is_profile_completed": True,
+        "app_name":'Shopkickora',
+
+        "exp": int((time.time() + 300)),
+    }
+    token = jwt.encode( payload,settings.SSO_SHARED_SECRET,algorithm="HS256")
+    return render(request,'user_app/sso_redirect.html',{'token':token})
 
 @never_cache
 def signup_view(request):

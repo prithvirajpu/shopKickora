@@ -27,6 +27,9 @@ INSTALLED_APPS = [
 
     'cloudinary',
     'cloudinary_storage',
+
+    'rest_framework',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -207,3 +210,16 @@ SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+}
+
+SSO_SHARED_SECRET = "my-super-long-cross-app-secret-key-2026"
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+]

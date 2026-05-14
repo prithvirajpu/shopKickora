@@ -41,7 +41,14 @@
 
   <!-- Order Status Tracker -->
   <div class="mt-6">
-    <h4 class="font-semibold mb-4 text-lg text-gray-800">Order Progress</h4>
+    <div class="flex justify-between items-center mb-4">
+        <h4 class="font-semibold text-lg text-gray-800">Order Progress</h4>
+        
+        <a href="{% url 'customer_support_redirect' %}" 
+           class="text-blue-600 hover:text-blue-800 hover:underline transition-colors font-medium">
+            Customer Support
+        </a>
+    </div>
     <div class="relative flex items-center justify-between text-sm font-medium bg-white p-8 rounded-xl shadow-lg">
       {% with steps="Placed,Shipped,Out for Delivery,Delivered,Cancelled"|split:"," status_map="PENDING,SHIPPED,OUT_FOR_DELIVERY,DELIVERED,CANCELLED"|split:"," icons="shopping-cart,truck,arrow-right-circle,check-circle,x-circle"|split:"," %}
         {% for step in steps %}

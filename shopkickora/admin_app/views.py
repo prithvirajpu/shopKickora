@@ -223,22 +223,32 @@ def product_list(request):
     return render(request, 'user_app/product_list.html', context)
 
 
+from decimal import Decimal, InvalidOperation
+import traceback
+
 @never_cache
 @user_passes_test(lambda u: u.is_superuser, login_url='admin_login')
 def add_product(request):
-    categories = Category.objects.filter(is_deleted=False,is_active=True)
-    brands = Brand.objects.filter(is_deleted=False,is_active=True)
+    categories = Category.objects.filter(is_deleted=False, is_active=True)
+    brands = Brand.objects.filter(is_deleted=False, is_active=True)
     errors = {}
 
     if request.method == 'POST':
         name = request.POST.get('name')
-        description = request.POST.get('description')
-        price = Decimal(request.POST.get('price') or 0)
+        description = request.POST.get('description', '').strip()
+
+        price_raw = request.POST.get('price', '').strip()
+        try:
+            price_val = Decimal(price_raw)
+            if price_val <= 0:
+                errors['price'] = "Price must be a positive number."
+        except (InvalidOperation, ValueError):
+            errors['price'] = "Enter a valid number for price."
+            price_val = Decimal('0.00')  # fallback to prevent crash
 
         category_id = request.POST.get('category')
         brand_id = request.POST.get('brand')
         images = request.FILES.getlist('images')
-        print(images)
 
         stock_6 = int(request.POST.get('stock_6') or 0)
         stock_7 = int(request.POST.get('stock_7') or 0)
@@ -247,27 +257,23 @@ def add_product(request):
         discount_str = request.POST.get('discount_percentage', '')
         discount_percentage = int(discount_str) if discount_str.isdigit() else 0
 
-
         form_data = {
             'name': name,
             'description': description,
-            'price': price,
+            'price': price_raw,
             'category': category_id,
             'brand': brand_id,
             'stock_6': stock_6,
             'stock_7': stock_7,
             'stock_8': stock_8,
-
             'discount_percentage': discount_percentage,
         }
 
-        try:
-            discount_val = int(discount_percentage or 0)
-            if not (0 <= discount_val <= 100):
-                errors['discount_percentage'] = "Discount must be between 0 and 100"
-        except (ValueError, TypeError):
-            errors['discount_percentage'] = "Invalid discount value"
+        # Discount validation
+        if not (0 <= discount_percentage <= 100):
+            errors['discount_percentage'] = "Discount must be between 0 and 100"
 
+        # Name validation
         if not name:
             errors['name'] = 'Must enter the name'
         elif not re.match(r'^[\w\s-]*[a-zA-Z][\w\s-]*$', name):
@@ -277,47 +283,41 @@ def add_product(request):
         elif Product.objects.filter(name__iexact=name).exists():
             errors['name'] = "The product name already exists"
 
-        try:
-            price_val = float(price)
-            if price_val <= 0:
-                errors['price'] = "Price must be a positive number."
-        except (ValueError, TypeError):
-            errors['price'] = "Enter a valid number for price."
-
-        s6 = int(stock_6)
-        s7 = int(stock_7)
-        s8 = int(stock_8)
-        if s6 < 0 or s7 < 0 or s8 < 0:
+        # Stock validation
+        if stock_6 < 0 or stock_7 < 0 or stock_8 < 0:
             errors['stock_sizes'] = "Stock values must be non-negative."
 
+        # Get category and brand safely
+        category = None
+        brand = None
         try:
             category = Category.objects.get(id=category_id)
         except Category.DoesNotExist:
             errors['category'] = "Invalid category selected"
-            category = None
+
         try:
             brand = Brand.objects.get(id=brand_id)
         except Brand.DoesNotExist:
             errors['brand'] = "Invalid brand selected"
-            brand = None
 
+        # Image validations
         if len(images) < 3:
             errors['format'] = "Please upload at least 3 images."
         else:
             allowed_extensions = ['jpg', 'jpeg', 'png', 'webp', 'avif']
-            max_size = 10 * 1024 * 1024  # 10MB limit
+            max_size = 10 * 1024 * 1024  # 10MB
 
             for image in images:
                 ext = image.name.split('.')[-1].lower()
                 if ext not in allowed_extensions:
-                    errors['format'] = "Invalid image file format"
+                    errors['format'] = "Invalid image file format."
                     break
                 if image.size > max_size:
-                    errors['format'] = "Each image must be less than 10MB in size"
+                    errors['format'] = "Each image must be less than 10MB."
                     break
 
-
-        if errors:
+        # Stop and show errors
+        if errors or not category or not brand:
             return render(request, 'user_app/add_product.html', {
                 'categories': categories,
                 'brands': brands,
@@ -325,29 +325,47 @@ def add_product(request):
                 'form_data': form_data
             })
 
-        total_stock = s6 + s7 + s8
+        # Save product safely
+        try:
+            total_stock = stock_6 + stock_7 + stock_8
 
-        product = Product.objects.create(
-            name=name,
-            description=description,
-            price=price_val,
-            stock=total_stock,
-            category=category,
-            brand=brand,
-            discount_percentage=discount_val,
-        )
+            product = Product.objects.create(
+                name=name,
+                description=description,
+                price=price_val,
+                stock=total_stock,
+                category=category,
+                brand=brand,
+                discount_percentage=discount_percentage,
+            )
 
-        for image in images:
-            ProductImage.objects.create(product=product, image=image)
+            for image in images:
+                ProductImage.objects.create(product=product, image=image)
 
-        ProductSizeStock.objects.bulk_create([
-            ProductSizeStock(product=product, size='6', quantity=s6),
-            ProductSizeStock(product=product, size='7', quantity=s7),
-            ProductSizeStock(product=product, size='8', quantity=s8),
-        ])
+            ProductSizeStock.objects.bulk_create([
+                ProductSizeStock(product=product, size='6', quantity=stock_6),
+                ProductSizeStock(product=product, size='7', quantity=stock_7),
+                ProductSizeStock(product=product, size='8', quantity=stock_8),
+            ])
 
-        messages.success(request, "Product added successfully.")
-        return redirect('product_list')
+            messages.success(request, "Product added successfully.")
+            return redirect('product_list')
+
+        except Exception as e:
+            import logging
+            logger = logging.getLogger('django')
+            logger.exception("Error occurred while saving product.")
+
+            # Optional: Delete product if partially created
+            if 'product' in locals():
+                product.delete()
+
+            return render(request, 'user_app/add_product.html', {
+                'categories': categories,
+                'brands': brands,
+                'errors': errors,
+                'form_data': form_data
+            })
 
     return render(request, 'user_app/add_product.html', {
         'categories': categories,
