@@ -1,0 +1,1 @@
+from .verify_ticket_service import fetch_details_service

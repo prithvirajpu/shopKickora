@@ -51,13 +51,13 @@ class LoginForm(forms.Form):
             'placeholder': 'Password',
         })
     )
-    def clean_username(self):
-        username = self.cleaned_data.get('username')
-        if not re.match(r'^(?=.*[a-zA-Z])[a-zA-Z0-9 _-]+$', username):
-            raise forms.ValidationError(
-                "Name must contain at least one letter and only use letters, numbers, spaces, hyphens, or underscores."
-            )
-        return username
+    # def clean_username(self):
+    #     username = self.cleaned_data.get('username')
+    #     if not re.match(r'^(?=.*[a-zA-Z])[a-zA-Z0-9 _-]+$', username):
+    #         raise forms.ValidationError(
+    #             "Name must contain at least one letter and only use letters, numbers, spaces, hyphens, or underscores."
+    #         )
+    #     return username
 
 class ProductForm(forms.ModelForm):
     

@@ -218,8 +218,12 @@ REST_FRAMEWORK = {
     ),
 }
 
-SSO_SHARED_SECRET = "my-super-long-cross-app-secret-key-2026"
+SSO_SHARED_SECRET = config('SSO_SHARED_SECRET')
+INTERNAL_API_KEY = config('INTERNAL_API_KEY')
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
+
+APPNAME=config('APPNAME')
+ROLE=config('ROLE')

@@ -1,9 +1,11 @@
 from django.urls import path
 from . import views
+from .views import SupportVerificationAPIView
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('customer-support/',views.customer_support_redirect,name='customer_support_redirect'),
+    path('api/support/verify/',SupportVerificationAPIView.as_view()),
 
 
     path('login', views.login_view, name='login'),
@@ -17,7 +19,6 @@ urlpatterns = [
     path('about/', views.about_page, name='about_page'),
     path('user_product_list/', views.user_product_list, name='user_product_list'),
     path('product/<slug:slug>/', views.product_detail, name='product_detail'),
-
 
     path('password-reset/',
          auth_views.PasswordResetView.as_view(

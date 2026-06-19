@@ -47,10 +47,13 @@ import cloudinary.uploader
 from decimal import Decimal, InvalidOperation
 
 import jwt
-
+from rest_framework.views import APIView
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from datetime import datetime, timedelta
-
+from rest_framework.response import Response
 from django.conf import settings
+from .services import fetch_details_service
 
 
 
@@ -68,14 +71,39 @@ def customer_support_redirect(request):
         "full_name": user.full_name,
         "profile_image": user.profile_image_url,
 
-        "role": "USER",
+        "role": settings.ROLE,
         "is_profile_completed": True,
-        "app_name":'Shopkickora',
+        "app_name":settings.APPNAME,
 
         "exp": int((time.time() + 300)),
     }
     token = jwt.encode( payload,settings.SSO_SHARED_SECRET,algorithm="HS256")
     return render(request,'user_app/sso_redirect.html',{'token':token})
+
+
+class SupportVerificationAPIView(APIView):
+    permission_classes= []
+    
+    def post(self,request):
+        try:
+            api_key= request.headers.get("X-API-KEY")
+            if api_key!= settings.INTERNAL_API_KEY:
+                return Response({
+                    'data':None,
+                    'errors':{'details':'Unauthorized'}
+                },status=401)
+            result= fetch_details_service(request)
+            return Response({
+                        "data": result["data"],
+                        "errors": result["errors"]
+                    },status=result["status"])
+        
+        except Exception as e:
+            return Response({
+                'data':None,
+                'errors':{"details":str(e)}
+            },status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @never_cache
 def signup_view(request):
@@ -100,8 +128,8 @@ def signup_view(request):
 
         if not email:
             errors['email'] = "Email is required."
-        elif not email.endswith('@gmail.com'):
-            errors['email'] = 'Enter a valid Gmail address.'
+        # elif not email.endswith('@gmail.com'):
+        #     errors['email'] = 'Enter a valid Gmail address.'
         elif CustomUser.objects.filter(email=email).exists():
             errors['email'] = "Email already in use."
         if not password1:
@@ -270,6 +298,7 @@ def reset_password_view(request, uidb64, token):
 
 User = get_user_model()
 
+from django.db.models import Q
 @never_cache
 def login_view(request):
     if request.user.is_authenticated:
@@ -283,7 +312,7 @@ def login_view(request):
         password = form.cleaned_data.get('password')
 
         try:
-            user = User.objects.get(username=username)
+            user = User.objects.get(Q(username__iexact=username) | Q(email__iexact=username))
         except User.DoesNotExist:
             form.add_error(None, "Invalid username or password.")
             return render(request, 'user_app/login.html', {'form': form})
