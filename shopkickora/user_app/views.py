@@ -55,6 +55,17 @@ from rest_framework.response import Response
 from django.conf import settings
 from .services import fetch_details_service
 
+from django.http import JsonResponse
+
+def debug_request(request):
+        
+    return JsonResponse({
+        "scheme": request.scheme,
+        "is_secure": request.is_secure(),
+        "HTTP_X_FORWARDED_PROTO": request.META.get("HTTP_X_FORWARDED_PROTO"),
+        "SECURE_PROXY_SSL_HEADER": str(settings.SECURE_PROXY_SSL_HEADER),
+        "USE_X_FORWARDED_HOST": settings.USE_X_FORWARDED_HOST,
+    })
 
 
 DEFAULT_PROFILE_IMAGE = 'https://res.cloudinary.com/dlfyesjsd/image/upload/v1752843790/default.png_unu5k8.png'

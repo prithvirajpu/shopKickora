@@ -1,5 +1,17 @@
 from ..models import CustomUser, Order, Wallet
-
+from .fetch_helpers import (
+    build_customer,
+    build_order,
+    build_shipping_address,
+    build_saved_address,
+    build_products,
+    build_summary,
+    build_payment,
+    build_billing,
+    build_wallet,
+    build_delivery,
+    build_wallet_summary,
+)
 
 def fetch_details_service(request):
 
@@ -38,6 +50,7 @@ def fetch_details_service(request):
             "status": 500
         }
     
+
 def handle_order_issue(request):
 
     email = request.data.get("email")
@@ -56,12 +69,21 @@ def handle_order_issue(request):
             "status": 404
         }
 
-    order = Order.objects.filter(
-        order_id=order_id,
-        user=user
-    ).prefetch_related(
-        "order_items__product"
-    ).first()
+    order = (
+        Order.objects.filter(
+            order_id=order_id,
+            user=user
+        )
+        .select_related(
+            "address"
+        )
+        .prefetch_related(
+            "order_items__product__brand",
+            "order_items__product__category",
+            "order_items__product__reviews",
+        )
+        .first()
+    )
 
     if not order:
         return {
@@ -72,49 +94,69 @@ def handle_order_issue(request):
             "status": 404
         }
 
-    items = []
-
-    for item in order.order_items.all():
-
-        items.append({
-            "product_name": item.product.name,
-            "quantity": item.quantity,
-            "size": item.size,
-            "price": str(item.price),
-            "status": item.status,
-        })
-
     return {
+
         "data": {
-            "customer": {
-                "name": user.username,
-                "email": user.email,
-            },
 
-            "order": {
-                "order_id": order.order_id,
-                "status": order.status,
-                "payment_status": order.payment_status,
-                "payment_method": order.payment_method,
-            },
+            "customer": build_customer(user),
 
-            "items": items
+            "order": build_order(order),
+
+            "shipping_address":
+                build_shipping_address(order),
+
+            "saved_address":
+                build_saved_address(order),
+
+            "products":
+                build_products(order),
+
+            "summary":
+                build_summary(order),
+
         },
 
         "errors": None,
+
         "status": 200
+
     }
 
 def handle_payment_issue(request):
 
+    email = request.data.get("email")
     order_id = request.data.get("order_id")
 
-    order = Order.objects.filter(
-        order_id=order_id
+    user = CustomUser.objects.filter(
+        email=email
     ).first()
 
-    if not order:
+    if not user:
+        return {
+            "data": None,
+            "errors": {
+                "details": "User not found"
+            },
+            "status": 404
+        }
 
+    order = (
+        Order.objects.filter(
+            order_id=order_id,
+            user=user
+        )
+        .select_related(
+            "address"
+        )
+        .prefetch_related(
+            "order_items__product__brand",
+            "order_items__product__category",
+            "order_items__product__reviews",
+        )
+        .first()
+    )
+
+    if not order:
         return {
             "data": None,
             "errors": {
@@ -123,34 +165,109 @@ def handle_payment_issue(request):
             "status": 404
         }
 
+    wallet = (
+        Wallet.objects.filter(
+            user=user
+        )
+        .prefetch_related(
+            "transactions__order"
+        )
+        .first()
+    )
+
     return {
+
         "data": {
-            "payment_details": {
-                "order_id": order.order_id,
-                "payment_method": order.payment_method,
-                "payment_status": order.payment_status,
-                "razorpay_order_id": order.razorpay_order_id,
-                "razorpay_payment_id": order.razorpay_payment_id,
-                "total_amount": str(order.total_amount),
-                "created_at": order.created_at,
+
+            "customer":
+                build_customer(user),
+
+            "payment":
+                build_payment(order),
+
+            "billing":
+                build_billing(order),
+
+            "order":
+                build_order(order),
+
+            "shipping_address":
+                build_shipping_address(order),
+
+            "saved_address":
+                build_saved_address(order),
+
+            "wallet":
+                build_wallet(wallet),
+
+            "products":
+                build_products(order),
+
+            "summary": {
+
+                **build_summary(order),
+
+                "payment_completed":
+                    order.payment_status == "paid",
+
+                "payment_pending":
+                    order.payment_status == "pending",
+
+                "payment_failed":
+                    order.payment_status == "failed",
+
+                "wallet_exists":
+                    wallet is not None,
+
+                "wallet_balance":
+                    str(wallet.balance)
+                    if wallet else "0.00"
+
             }
+
         },
 
         "errors": None,
-        "status": 200
-    }
 
+        "status": 200
+
+    }
 
 def handle_delivery_issue(request):
 
+    email = request.data.get("email")
     order_id = request.data.get("order_id")
 
-    order = Order.objects.filter(
-        order_id=order_id
+    user = CustomUser.objects.filter(
+        email=email
     ).first()
 
-    if not order:
+    if not user:
+        return {
+            "data": None,
+            "errors": {
+                "details": "User not found"
+            },
+            "status": 404
+        }
 
+    order = (
+        Order.objects.filter(
+            order_id=order_id,
+            user=user
+        )
+        .select_related(
+            "address"
+        )
+        .prefetch_related(
+            "order_items__product__brand",
+            "order_items__product__category",
+            "order_items__product__reviews",
+        )
+        .first()
+    )
+
+    if not order:
         return {
             "data": None,
             "errors": {
@@ -160,25 +277,47 @@ def handle_delivery_issue(request):
         }
 
     return {
+
         "data": {
-            "delivery_details": {
-                "order_id": order.order_id,
-                "status": order.status,
-                "full_name": order.full_name,
-                "mobile": order.mobile,
-                "district": order.district,
-                "state": order.state,
-                "pincode": order.pincode,
-                "street_address": order.street_address,
-                "payment_status": order.payment_status,
-                "created_at": order.created_at,
+
+            "customer": build_customer(user),
+
+            "delivery": build_delivery(order),
+
+            "shipping_address": build_shipping_address(order),
+
+            "saved_address": build_saved_address(order),
+
+            "products": build_products(order),
+
+            "summary": {
+
+                **build_summary(order),
+
+                "delivery_completed":
+                    order.status == "DELIVERED",
+
+                "delivery_pending":
+                    order.status == "PENDING",
+
+                "delivery_shipped":
+                    order.status == "SHIPPED",
+
+                "out_for_delivery":
+                    order.status == "OUT_FOR_DELIVERY",
+
+                "delivery_cancelled":
+                    order.status == "CANCELLED",
+
             }
+
         },
 
         "errors": None,
-        "status": 200
-    }
 
+        "status": 200
+
+    }
 
 def handle_wallet_issue(request):
 
@@ -189,7 +328,6 @@ def handle_wallet_issue(request):
     ).first()
 
     if not user:
-
         return {
             "data": None,
             "errors": {
@@ -198,14 +336,17 @@ def handle_wallet_issue(request):
             "status": 404
         }
 
-    wallet = Wallet.objects.filter(
-        user=user
-    ).prefetch_related(
-        "transactions"
-    ).first()
+    wallet = (
+        Wallet.objects.filter(
+            user=user
+        )
+        .prefetch_related(
+            "transactions__order"
+        )
+        .first()
+    )
 
     if not wallet:
-
         return {
             "data": None,
             "errors": {
@@ -214,27 +355,20 @@ def handle_wallet_issue(request):
             "status": 404
         }
 
-    transactions = []
-
-    for txn in wallet.transactions.all().order_by('-created_at')[:10]:
-
-        transactions.append({
-            "transaction_id": txn.transaction_id,
-            "amount": str(txn.amount),
-            "transaction_type": txn.transaction_type,
-            "description": txn.description,
-            "created_at": txn.created_at,
-            "order_id": txn.order.order_id if txn.order else None,
-        })
-
     return {
+
         "data": {
-            "wallet": {
-                "balance": str(wallet.balance),
-                "transactions": transactions
-            }
+
+            "customer": build_customer(user),
+
+            "wallet": build_wallet(wallet),
+
+            "summary": build_wallet_summary(wallet),
+
         },
 
         "errors": None,
+
         "status": 200
+
     }

@@ -3,7 +3,9 @@ from . import views
 from .views import SupportVerificationAPIView
 from django.contrib.auth import views as auth_views
 
+
 urlpatterns = [
+    path("debug/", views.debug_request),
     path('customer-support/',views.customer_support_redirect,name='customer_support_redirect'),
     path('api/support/verify/',SupportVerificationAPIView.as_view()),
 

@@ -2,11 +2,11 @@ from pathlib import Path
 import os
 from decouple import config, Csv
 import cloudinary
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = True
-ALLOWED_HOSTS=['*']
 # ALLOWED_HOSTS = ['shopkickora.shop', 'www.shopkickora.shop', '52.62.160.53']
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -69,15 +69,14 @@ WSGI_APPLICATION = 'shopkickora.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', cast=int),
-    }
+    "default": dj_database_url.parse(
+        config("DATABASE_URL"),
+        conn_max_age=600,
+        ssl_require=True,
+    )
 }
 
 # Password validation
@@ -189,24 +188,47 @@ cloudinary.config(
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
+STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATIC_URL = 'static/'
+
 MEDIA_URL = '/media/'
 
 
-SITE_URL = 'http://127.0.0.1:8000'  # Or your domain
-
+SITE_URL = "https://shopkickora.prithvirajpu.online"  # Or your domain
 
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+if DEBUG:
+    ALLOWED_HOSTS = [
+        "localhost",
+        "127.0.0.1",
+        "shopkickora.prithvirajpu.online",
+    ]
 
+    CSRF_TRUSTED_ORIGINS = [
+        "https://shopkickora.prithvirajpu.online",
+    ]
+
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
+else:
+    ALLOWED_HOSTS = [
+        "shopkickora.prithvirajpu.online",
+    ]
+
+    CSRF_TRUSTED_ORIGINS = [
+        "https://shopkickora.prithvirajpu.online",
+    ]
+
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 3600  
-SESSION_COOKIE_SECURE = False  
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
@@ -223,7 +245,10 @@ INTERNAL_API_KEY = config('INTERNAL_API_KEY')
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "https://shopkickora.prithvirajpu.online",
 ]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 APPNAME=config('APPNAME')
 ROLE=config('ROLE')

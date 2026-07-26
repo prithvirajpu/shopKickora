@@ -5,6 +5,7 @@ __pycache__/
 # Ignore environment and secrets
 .env
 *.env
+!.env.example
 
 # Ignore local database (if using SQLite)
 db.sqlite3
