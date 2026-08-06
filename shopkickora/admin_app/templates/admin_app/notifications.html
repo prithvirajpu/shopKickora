@@ -1,0 +1,188 @@
+{% extends 'user_app/base_admin.html' %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h3 class="mb-4">
+        🔔 TRS Notifications
+    </h3>
+
+    <div id="notification-list">
+
+        Loading...
+
+    </div>
+
+</div>
+
+<script>
+
+function getCookie(name){
+
+    let cookieValue = null;
+
+    if(document.cookie && document.cookie !== ""){
+
+        const cookies = document.cookie.split(";");
+
+        for(let cookie of cookies){
+
+            cookie = cookie.trim();
+
+            if(cookie.startsWith(name + "=")){
+
+                cookieValue = decodeURIComponent(
+                    cookie.substring(name.length + 1)
+                );
+
+                break;
+
+            }
+
+        }
+
+    }
+
+    return cookieValue;
+
+}
+
+
+async function markAsRead(notificationId){
+
+    try{
+
+        const response = await fetch(
+
+            `/myadmin/api/support/notifications/${notificationId}/read/`,
+
+            {
+
+                method:"POST",
+
+                headers:{
+                    "X-CSRFToken":getCookie("csrftoken"),
+                }
+
+            }
+
+        );
+
+        const data = await response.json();
+
+        if(data.success){
+
+            loadNotifications();
+
+        }else{
+
+            alert(data.message);
+
+        }
+
+    }
+
+    catch(err){
+
+        console.error(err);
+
+    }
+
+}
+
+
+
+async function loadNotifications() {
+
+    try {
+
+        const response = await fetch(
+            "/myadmin/api/support/notifications/"
+        );
+
+        const data = await response.json();
+
+        const container =
+            document.getElementById("notification-list");
+
+        container.innerHTML = "";
+
+        if (data.count === 0) {
+
+            container.innerHTML = `
+                <div class="alert alert-success">
+                    No unread notifications.
+                </div>
+            `;
+
+            return;
+        }
+
+        data.notifications.forEach(notification => {
+
+            container.innerHTML += `
+
+                <div class="card mb-3 shadow-sm">
+
+                    <div class="card-body">
+
+                        <h5 class="card-title">
+                            ${notification.subject}
+                        </h5>
+
+                        <p class="card-text">
+                            ${notification.message}
+                        </p>
+
+                        <hr>
+
+                        <small class="text-muted">
+
+                            Customer :
+                            ${notification.customer}
+
+                        </small>
+
+                        <br>
+
+                        <small class="text-muted">
+
+                            ${notification.created_at}
+
+                        </small>
+
+                        <br><br>
+
+                        <button
+                            class="btn btn-success btn-sm"
+                            onclick="markAsRead(${notification.id})"
+                        >
+                            ✓ Mark as Read
+                        </button>
+
+                    </div>
+
+                </div>
+
+            `;
+
+        });
+
+    }
+    catch (err) {
+
+        console.error(err);
+
+    }
+
+}
+
+
+loadNotifications();
+
+setInterval(loadNotifications,10000);
+
+</script>
+
+{% endblock %}

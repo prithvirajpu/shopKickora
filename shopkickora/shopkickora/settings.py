@@ -252,3 +252,4 @@ USE_X_FORWARDED_HOST = True
 
 APPNAME=config('APPNAME')
 ROLE=config('ROLE')
+TRS_SSO_URL = config('TRS_SSO_URL')

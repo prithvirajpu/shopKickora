@@ -89,7 +89,8 @@ def customer_support_redirect(request):
         "exp": int((time.time() + 300)),
     }
     token = jwt.encode( payload,settings.SSO_SHARED_SECRET,algorithm="HS256")
-    return render(request,'user_app/sso_redirect.html',{'token':token})
+    return render(request,'user_app/sso_redirect.html',{'token':token,
+                                                        'trs_sso_url':settings.TRS_SSO_URL,})
 
 
 class SupportVerificationAPIView(APIView):

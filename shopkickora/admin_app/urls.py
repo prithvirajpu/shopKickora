@@ -2,6 +2,11 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("api/support/notifications/", views.receive_trs_notification, name="receive_trs_notification",),
+    path("api/support/notifications/<int:notification_id>/read/", views.mark_notification_read, name="mark_notification_read",),
+    path("notifications/", views.notification_page, name="notification_page",),
+
+
     path('users/', views.user_list, name='user_list'),
     path('admin/users/toggle-status/<int:user_id>/', views.toggle_user_status, name='toggle_user_status'),
     path('', views.admin_login, name='admin_login'),

@@ -12,6 +12,7 @@ from user_app.models import (
     Brand, ProductSizeStock, Order, OrderItem, Wallet,
     ProductOffer, CategoryOffer, WalletTransaction
 )
+from .models import ClientNotification
 
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.cache import never_cache
@@ -24,12 +25,141 @@ from django.utils.timezone import now
 from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models.functions import TruncDay, TruncMonth, TruncYear
+from django.conf import settings
+import json
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import get_user_model
+User=get_user_model()
 
 
+@csrf_exempt
+def receive_trs_notification(request):
 
+    # -------------------------
+    # GET -> Admin Polling
+    # -------------------------
+    if request.method == "GET":
+
+        notifications = (
+            ClientNotification.objects
+            .filter(is_read=False)
+            .select_related("customer")
+            .order_by("-created_at")
+        )
+
+        data = []
+
+        for notification in notifications:
+            data.append({
+                "id": notification.id,
+                "customer": notification.customer.email,
+                "subject": notification.subject,
+                "message": notification.message,
+                "created_at": notification.created_at.strftime("%d %b %Y %I:%M %p"),
+                "is_read": notification.is_read,
+            })
+
+        return JsonResponse({
+            "success": True,
+            "count": len(data),
+            "notifications": data,
+        })
+
+
+    # -------------------------
+    # POST -> TRS Notification
+    # -------------------------
+    if request.method != "POST":
+        return JsonResponse({
+            "success": False,
+            "message": "Method Not Allowed",
+        }, status=405)
+
+    api_key = request.headers.get("X-API-KEY")
+
+    if api_key != settings.INTERNAL_API_KEY:
+        return JsonResponse({
+            "success": False,
+            "message": "Unauthorized",
+        }, status=401)
+
+    try:
+
+        data = json.loads(request.body)
+
+        email = data.get("email")
+        subject = data.get("subject")
+        message = data.get("message")
+
+        if not email or not subject or not message:
+            return JsonResponse({
+                "success": False,
+                "message": "email, subject and message are required."
+            }, status=400)
+
+        customer = User.objects.filter(email=email).first()
+
+        if not customer:
+            return JsonResponse({
+                "success": False,
+                "message": "Customer not found."
+            }, status=404)
+
+        ClientNotification.objects.create(
+            customer=customer,
+            subject=subject,
+            message=message,
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": "Notification created successfully."
+        }, status=201)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            "success": False,
+            "message": "Invalid JSON."
+        }, status=400)
+
+    except Exception as e:
+        return JsonResponse({
+            "success": False,
+            "message": str(e)
+        }, status=500)
+
+def notification_page(request):
+    return render(request,'admin_app/notifications.html')
+
+@require_POST
+def mark_notification_read(request,notification_id):
+    try:
+        notification=ClientNotification.objects.filter(
+            id=notification_id
+        ).first()
+        if not notification:
+            return JsonResponse({
+                'success':False,
+                'message':'Notification not found'
+            },status=404)
+        notification.is_read=True
+        notification.save(update_fields=['is_read'])
+        return JsonResponse({
+            'success':True,
+            'message':'Notification marked as read.'
+        })
+    except Exception as e:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": str(e),
+            },
+            status=500,
+        )
 
 @never_cache
 def admin_login(request):
