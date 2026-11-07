@@ -15,6 +15,7 @@ services:
 
     volumes:
       - static_volume:/app/staticfiles
+      - .:/app
 
     expose:
       - "8000"

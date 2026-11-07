@@ -1115,6 +1115,16 @@ def checkout(request):
     
     if not cart_items.exists():
         return redirect('cart_view')   
+    for item in cart_items:
+        try:
+            stock = ProductSizeStock.objects.get(product=item.product, size=item.size)
+            if item.quantity > stock.quantity:
+                # Inform the user and redirect them back to the cart to adjust quantities
+                messages.error(request, f"Sorry, '{item.product.name}' (Size: {item.size}) only has {stock.quantity} items left in stock.")
+                return redirect('cart_view')
+        except ProductSizeStock.DoesNotExist:
+            messages.error(request, f"Sorry, '{item.product.name}' (Size: {item.size}) is no longer available.")
+            return redirect('cart_view')
 
     grand_total = Decimal('0.00')
     original_total = Decimal('0.00')
@@ -1367,13 +1377,14 @@ def place_order(request):
         )
 
     # Update stock
-    for item in cart_items:
-        stock = ProductSizeStock.objects.get(product=item.product, size=item.size)
-        stock.quantity -= item.quantity
-        stock.save()
+    
 
     # Clear cart
     if payment_method in ["cod", "wallet"]:
+        for item in cart_items:
+            stock = ProductSizeStock.objects.get(product=item.product, size=item.size)
+            stock.quantity -= item.quantity
+            stock.save()
         cart_items.delete()
 
     # Clear coupon session

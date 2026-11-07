@@ -1145,7 +1145,7 @@ def soft_category_offer_delete(request,offer_id):
 
 @user_passes_test(lambda x: x.is_superuser)
 def admin_coupon_list(request):
-    coupons=Coupon.objects.all().order_by('-valid_to')
+    coupons=Coupon.objects.filter(is_deleted=False).order_by('-valid_to')
     paginator=Paginator(coupons,6)
     page_number=request.GET.get('page')
     page_obj=paginator.get_page(page_number)
@@ -1297,10 +1297,16 @@ def toggle_coupon(request,coupon_id):
 
 @user_passes_test(lambda x: x.is_superuser)
 def soft_delete_coupon(request, coupon_id):
-    coupon = get_object_or_404(Coupon, id=coupon_id, is_deleted=False)
-    coupon.is_deleted = True
-    coupon.save()
-    messages.success(request, f"Coupon '{coupon.code}'has been deleted  successfully.")
+    # Fetch by ID only so we don't trigger a 404 if it was somehow already touched
+    coupon = get_object_or_404(Coupon, id=coupon_id)
+    
+    if coupon.is_deleted:
+        messages.warning(request, f"Coupon '{coupon.code}' was already deleted.")
+    else:
+        coupon.is_deleted = True
+        coupon.save()
+        messages.success(request, f"Coupon '{coupon.code}' has been deleted successfully.")
+        
     return redirect('admin_coupon_list')
 
 @user_passes_test(lambda x: x.is_superuser)

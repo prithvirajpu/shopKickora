@@ -1190,7 +1190,11 @@
               var couponName = this.getAttribute('data-coupon-name');
               deleteCouponName.textContent = couponName;
               // Update the form action dynamically
-              deleteCouponForm.setAttribute('action', '{% url "soft_delete_coupon" 0 %}'.replace('0', couponId));
+              var generatedUrl = '{% url "soft_delete_coupon" 0 %}'.replace('0', couponId);
+        deleteCouponForm.setAttribute('action', generatedUrl);
+        
+        // CHECK YOUR BROWSER CONSOLE (F12) TO SEE THIS URL:
+        console.log("Submitting delete to URL:", generatedUrl);
               couponDeleteModal.show();
           });
       });
